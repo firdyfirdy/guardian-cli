@@ -4,6 +4,8 @@ Handles communication with Gemini AI model via LangChain
 """
 
 import os
+import time
+import asyncio
 from typing import Optional, Dict, Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
@@ -35,6 +37,11 @@ class GeminiClient:
         self.temperature = ai_config.get("temperature", 0.2)
         self.max_tokens = ai_config.get("max_tokens", 8000)
         
+        # Rate limiting: requests per minute
+        self.rate_limit = ai_config.get("rate_limit", 60)  # Default 60 RPM
+        self._min_request_interval = 60.0 / self.rate_limit if self.rate_limit > 0 else 0
+        self._last_request_time = 0.0
+        
         try:
             self.llm = ChatGoogleGenerativeAI(
                 model=self.model_name,
@@ -43,10 +50,30 @@ class GeminiClient:
                 max_output_tokens=self.max_tokens,
                 convert_system_message_to_human=True,
             )
-            self.logger.info(f"Initialized Gemini model: {self.model_name}")
+            self.logger.info(f"Initialized Gemini model: {self.model_name} (rate limit: {self.rate_limit} RPM)")
         except Exception as e:
             self.logger.error(f"Failed to initialize Gemini client: {e}")
             raise
+    
+    async def _apply_rate_limit(self):
+        """Apply rate limiting between API calls"""
+        if self._min_request_interval > 0:
+            elapsed = time.time() - self._last_request_time
+            if elapsed < self._min_request_interval:
+                wait_time = self._min_request_interval - elapsed
+                self.logger.debug(f"Rate limiting: waiting {wait_time:.2f}s before next request")
+                await asyncio.sleep(wait_time)
+        self._last_request_time = time.time()
+    
+    def _apply_rate_limit_sync(self):
+        """Synchronous rate limiting"""
+        if self._min_request_interval > 0:
+            elapsed = time.time() - self._last_request_time
+            if elapsed < self._min_request_interval:
+                wait_time = self._min_request_interval - elapsed
+                self.logger.debug(f"Rate limiting: waiting {wait_time:.2f}s before next request")
+                time.sleep(wait_time)
+        self._last_request_time = time.time()
     
     async def generate(
         self,
@@ -66,6 +93,9 @@ class GeminiClient:
             Generated response text
         """
         try:
+            # Apply rate limiting
+            await self._apply_rate_limit()
+            
             messages = []
             
             # Add system prompt if provided
@@ -96,6 +126,9 @@ class GeminiClient:
     ) -> str:
         """Synchronous version of generate"""
         try:
+            # Apply rate limiting
+            self._apply_rate_limit_sync()
+            
             messages = []
             
             if system_prompt:

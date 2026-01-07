@@ -22,7 +22,7 @@ class HttpxTool(BaseTool):
         command = ["httpx"]
         
         # JSON output for easy parsing
-        command.extend(["-json"])
+        command.extend(["-j"])
         
         # Threads
         threads = config.get("threads", 50)

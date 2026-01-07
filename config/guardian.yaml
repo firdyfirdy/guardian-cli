@@ -8,6 +8,7 @@ ai:
   temperature: 0.2
   max_tokens: 8000
   timeout: 60
+  rate_limit: 2
 
 # Penetration Testing Settings
 pentest:

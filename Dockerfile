@@ -4,7 +4,7 @@
 # ============================================================================
 # Stage 1: Builder - Install Go tools and build dependencies
 # ============================================================================
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /build
 
@@ -71,11 +71,16 @@ RUN apk add --no-cache \
     git clone https://github.com/robertdavidgraham/masscan /opt/masscan && \
     cd /opt/masscan && make && make install && \
     cd ${GUARDIAN_HOME} && \
+    # Install WhatWeb
+    git clone https://github.com/urbanadventurer/WhatWeb.git /opt/whatweb && \
+    ln -s /opt/whatweb/whatweb /usr/local/bin/whatweb && \
+    chmod +x /usr/local/bin/whatweb && \
+    # Install WPScan
+    gem install wpscan --no-document && \
     # Clean up build dependencies
     apk del make gcc musl-dev
 
-# Install Ruby-based tools
-RUN gem install whatweb wpscan --no-document
+
 
 # Copy Go tools from builder
 COPY --from=builder /go/bin/* /usr/local/bin/
@@ -86,8 +91,13 @@ RUN pip install --no-cache-dir \
     sqlmap \
     sslyze \
     arjun \
-    dnsrecon \
-    cmseek
+    dnsrecon
+
+# Install CMSeeK
+RUN git clone https://github.com/Tuhinshubhra/CMSeeK.git /opt/cmseek && \
+    pip install -r /opt/cmseek/requirements.txt && \
+    ln -s /opt/cmseek/cmseek.py /usr/local/bin/cmseek && \
+    chmod +x /usr/local/bin/cmseek
 
 # Download TestSSL
 RUN git clone --depth 1 https://github.com/drwetter/testssl.sh.git /opt/testssl && \
@@ -109,6 +119,7 @@ COPY tools/ ./tools/
 COPY utils/ ./utils/
 COPY workflows/ ./workflows/
 COPY config/ ./config/
+COPY reports/ ./reports/
 
 # Install Guardian and its dependencies
 RUN pip install --no-cache-dir -e .

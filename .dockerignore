@@ -30,7 +30,9 @@ docs/
 !README.md
 
 # Generated files
-reports/
+reports/*.json
+reports/*.html
+reports/*.pdf
 logs/
 *.log
 
