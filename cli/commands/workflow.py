@@ -23,6 +23,12 @@ def workflow_command(
         "--config",
         "-c",
         help="Configuration file path"
+    ),
+    model: str = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="Override AI model"
     )
 ):
     """
@@ -47,7 +53,7 @@ def workflow_command(
             console.print("[bold red]Error:[/bold red] --target is required for 'run' action")
             raise typer.Exit(1)
         
-        _run_workflow(name, target, config_file)
+        _run_workflow(name, target, config_file, model)
     else:
         console.print(f"[bold red]Error:[/bold red] Unknown action: {action}")
         raise typer.Exit(1)
@@ -67,11 +73,19 @@ def _list_workflows():
     console.print(table)
 
 
-def _run_workflow(name: str, target: str, config_file: Path):
+def _run_workflow(name: str, target: str, config_file: Path, model: str = None):
     """Run a workflow"""
     console.print(f"[bold cyan]🚀 Running {name} workflow on {target}[/bold cyan]\n")
     
     config = load_config(str(config_file))
+    
+    # Override model if provided
+    if model:
+        if "ai" not in config:
+            config["ai"] = {}
+        config["ai"]["model"] = model
+        console.print(f"[dim]Using model override: {model}[/dim]")
+
     
     try:
         engine = WorkflowEngine(config, target)

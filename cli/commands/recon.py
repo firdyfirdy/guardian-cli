@@ -32,6 +32,12 @@ def recon_command(
         False,
         "--dry-run",
         help="Show what would be done without executing"
+    ),
+    model: str = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="Override AI model (e.g. gemini-3-pro, gemini-3-flash, claude-sonnet-4-5)"
     )
 ):
     """
@@ -57,6 +63,14 @@ def recon_command(
     
     # Load configuration
     config = load_config(str(config_file))
+    
+    # Override model if provided
+    if model:
+        if "ai" not in config:
+            config["ai"] = {}
+        config["ai"]["model"] = model
+        console.print(f"[dim]Using model override: {model}[/dim]")
+
     
     # Run workflow
     try:

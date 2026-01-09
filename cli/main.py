@@ -32,6 +32,13 @@ app.command(name="report")(report.report_command)
 app.command(name="workflow")(workflow.workflow_command)
 app.command(name="ai")(ai_explain.explain_command)
 
+# Register Antigravity Auth commands
+try:
+    from antigravity_auth.cli.main import auth_app as antigravity_auth_app
+    app.add_typer(antigravity_auth_app, name="auth", help="🔐 Manage Antigravity Authentication")
+except ImportError:
+    console.print("[yellow]Warning: Antigravity Auth library not found. Auth commands disabled.[/yellow]")
+
 
 @app.callback()
 def callback():

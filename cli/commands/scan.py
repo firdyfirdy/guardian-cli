@@ -21,6 +21,12 @@ def scan_command(
         "--config",
         "-c",
         help="Configuration file path"
+    ),
+    model: str = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="Override AI model"
     )
 ):
     """
@@ -32,6 +38,12 @@ def scan_command(
     console.print(f"[bold cyan]🔍 Scanning: {target}[/bold cyan]\n")
     
     config = load_config(str(config_file))
+    
+    # Override model if provided
+    if model:
+        if "ai" not in config:
+            config["ai"] = {}
+        config["ai"]["model"] = model
     
     try:
         # Run nmap scan

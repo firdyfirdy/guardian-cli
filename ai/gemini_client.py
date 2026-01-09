@@ -1,41 +1,27 @@
 """
 Google Gemini API client for Guardian
-Handles communication with Gemini AI model via LangChain
+Handles communication with Gemini AI model via Antigravity Auth
 """
 
-import os
 import time
 import asyncio
-from typing import Optional, Dict, Any
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from dotenv import load_dotenv
+from typing import Optional, Dict, Any, List
 
+# Use Antigravity Service instead of LangChain
+from antigravity_auth import AntigravityService
 from utils.logger import get_logger
 
 
 class GeminiClient:
-    """Google Gemini API client wrapper"""
+    """Google Gemini API client wrapper using Antigravity Auth"""
     
     def __init__(self, config: Dict[str, Any]):
-        load_dotenv()
-        
         self.config = config
         self.logger = get_logger(config)
         
-        # Get API key from environment
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "GOOGLE_API_KEY not found in environment. "
-                "Please set it in .env file or environment variables."
-            )
-        
-        # Initialize Gemini model via LangChain
+        # Initialize Gemini model via Antigravity
         ai_config = config.get("ai", {})
-        self.model_name = ai_config.get("model", "gemini-2.5-pro")
-        self.temperature = ai_config.get("temperature", 0.2)
-        self.max_tokens = ai_config.get("max_tokens", 8000)
+        self.model_name = ai_config.get("model", "gemini-3-pro")
         
         # Rate limiting: requests per minute
         self.rate_limit = ai_config.get("rate_limit", 60)  # Default 60 RPM
@@ -43,16 +29,11 @@ class GeminiClient:
         self._last_request_time = 0.0
         
         try:
-            self.llm = ChatGoogleGenerativeAI(
-                model=self.model_name,
-                google_api_key=api_key,
-                temperature=self.temperature,
-                max_output_tokens=self.max_tokens,
-                convert_system_message_to_human=True,
-            )
-            self.logger.info(f"Initialized Gemini model: {self.model_name} (rate limit: {self.rate_limit} RPM)")
+            # Initialize Antigravity Service
+            self.service = AntigravityService(model=self.model_name)
+            self.logger.info(f"Initialized Antigravity model: {self.model_name}")
         except Exception as e:
-            self.logger.error(f"Failed to initialize Gemini client: {e}")
+            self.logger.error(f"Failed to initialize Antigravity client: {e}")
             raise
     
     async def _apply_rate_limit(self):
@@ -75,6 +56,23 @@ class GeminiClient:
                 time.sleep(wait_time)
         self._last_request_time = time.time()
     
+    def _format_context(self, context: Optional[List[Any]]) -> List[Dict[str, Any]]:
+        """Format context messages for Antigravity (Gemini format)."""
+        formatted_messages = []
+        if context:
+            for msg in context:
+                # Handle LangChain message objects if they are passed
+                if hasattr(msg, "content") and hasattr(msg, "type"):
+                    role = "user" if msg.type == "human" else "model"
+                    formatted_messages.append({
+                        "role": role,
+                        "parts": [{"text": msg.content}]
+                    })
+                # Handle raw dicts
+                elif isinstance(msg, dict):
+                    formatted_messages.append(msg)
+        return formatted_messages
+
     async def generate(
         self,
         prompt: str,
@@ -82,7 +80,7 @@ class GeminiClient:
         context: Optional[list] = None
     ) -> str:
         """
-        Generate a response from Gemini
+        Generate a response from Gemini using Antigravity
         
         Args:
             prompt: User prompt
@@ -96,26 +94,37 @@ class GeminiClient:
             # Apply rate limiting
             await self._apply_rate_limit()
             
-            messages = []
+            # Use Antigravity Service
+            # Note: AntigravityService handles message formatting internally, 
+            # so we just pass prompt and system_prompt directly.
+            # If context is provided, we might need a way to pass it.
+            # Currently AntigravityService.generate is simple.
+            # Let's use the underlying client or update service if needed.
+            # For now, let's assume simple prompt/system_prompt usage.
             
-            # Add system prompt if provided
-            if system_prompt:
-                messages.append(SystemMessage(content=system_prompt))
-            
-            # Add context if provided
+            # Create a combined prompt if context exists (simplified for now)
+            # A better approach would be to update AntigravityService to accept history
+            full_prompt = prompt
             if context:
-                messages.extend(context)
+                # Simple append for context if not fully supported by service wrapper yet
+                # This is a temporary shim until service supports full history
+                formatted_history = "\n".join([
+                    f"{msg.get('role', 'user')}: {msg.get('parts', [{'text': ''}])[0].get('text', '')}" 
+                    if isinstance(msg, dict) else str(msg)
+                    for msg in self._format_context(context)
+                ])
+                if formatted_history:
+                    full_prompt = f"Previous conversation:\n{formatted_history}\n\nCurrent user request:\n{prompt}"
+
+            response = await self.service.generate(
+                prompt=full_prompt,
+                system_prompt=system_prompt
+            )
             
-            # Add current prompt
-            messages.append(HumanMessage(content=prompt))
-            
-            # Generate response
-            response = await self.llm.ainvoke(messages)
-            
-            return response.content
+            return response
             
         except Exception as e:
-            self.logger.error(f"Gemini API error: {e}")
+            self.logger.error(f"Antigravity API error: {e}")
             raise
     
     def generate_sync(
@@ -129,21 +138,24 @@ class GeminiClient:
             # Apply rate limiting
             self._apply_rate_limit_sync()
             
-            messages = []
-            
-            if system_prompt:
-                messages.append(SystemMessage(content=system_prompt))
-            
+            full_prompt = prompt
             if context:
-                messages.extend(context)
+                formatted_history = "\n".join([
+                    f"{msg.get('role', 'user')}: {msg.get('parts', [{'text': ''}])[0].get('text', '')}" 
+                    if isinstance(msg, dict) else str(msg)
+                    for msg in self._format_context(context)
+                ])
+                if formatted_history:
+                    full_prompt = f"Previous conversation:\n{formatted_history}\n\nCurrent user request:\n{prompt}"
             
-            messages.append(HumanMessage(content=prompt))
-            
-            response = self.llm.invoke(messages)
-            return response.content
+            response = self.service.generate_sync(
+                prompt=full_prompt,
+                system_prompt=system_prompt
+            )
+            return response
             
         except Exception as e:
-            self.logger.error(f"Gemini API error: {e}")
+            self.logger.error(f"Antigravity API error: {e}")
             raise
     
     async def generate_with_reasoning(
@@ -172,11 +184,23 @@ Please structure your response as:
         parts = {"reasoning": "", "response": ""}
         
         if "REASONING:" in response and "RESPONSE:" in response:
-            reasoning_start = response.find("REASONING:") + len("REASONING:")
-            response_start = response.find("RESPONSE:") + len("RESPONSE:")
-            
-            parts["reasoning"] = response[reasoning_start:response.find("RESPONSE:")].strip()
-            parts["response"] = response[response_start:].strip()
+            try:
+                # Find indices to slice the string safely
+                reasoning_idx = response.find("REASONING:")
+                response_idx = response.find("RESPONSE:")
+                
+                if reasoning_idx != -1 and response_idx != -1:
+                    reasoning_content = response[reasoning_idx + len("REASONING:"):response_idx].strip()
+                    response_content = response[response_idx + len("RESPONSE:"):].strip()
+                    
+                    parts["reasoning"] = reasoning_content
+                    parts["response"] = response_content
+                else:
+                     parts["response"] = response
+                     parts["reasoning"] = "Parsing failed, check format."
+            except Exception:
+                parts["response"] = response
+                parts["reasoning"] = "Error parsing response structure"
         else:
             # If not properly formatted, put everything in response
             parts["response"] = response
