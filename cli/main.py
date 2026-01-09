@@ -97,4 +97,16 @@ def main():
 
 
 if __name__ == "__main__":
+    # Check if logged in before running
+    try:
+        from antigravity_auth import AntigravityService, NoAccountsError
+        service = AntigravityService(quiet_mode=True)
+        if not service.get_accounts():
+             console.print("[yellow]⚠️  No Antigravity accounts found.[/yellow]")
+             console.print("[yellow]   Please run 'guardian auth login' to authenticate before using AI features.[/yellow]\n")
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
     main()
