@@ -423,7 +423,7 @@ python -m cli.main --help
 .\guardian.bat --help
 ```
 
-For more help, [open an issue](https://github.com/zakirkun/guardian-cli/issues).
+For more help, [open an issue](https://github.com/firdyfirdy/guardian-cli/issues).
 
 ---
 
