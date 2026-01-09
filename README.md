@@ -240,8 +240,11 @@ python -m cli.main report --session 20251222_120000 --format html
 python -m cli.main ai --last
 ```
 
-#### 7. Use Specific A Models
+#### 7. Use Specific AI Models
 ```bash
+# List available models
+python -m cli.main models
+
 # Recon with Gemini 3 Pro
 python -m cli.main recon --domain example.com --model gemini-3-pro
 

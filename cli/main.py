@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 
 # Import command groups
-from cli.commands import init, scan, recon, analyze, report, workflow, ai_explain
+from cli.commands import init, scan, recon, analyze, report, workflow, ai_explain, models
 
 # Initialize Typer app
 app = typer.Typer(
@@ -31,6 +31,7 @@ app.command(name="analyze")(analyze.analyze_command)
 app.command(name="report")(report.report_command)  
 app.command(name="workflow")(workflow.workflow_command)
 app.command(name="ai")(ai_explain.explain_command)
+app.command(name="models")(models.list_models_command)
 
 # Register Antigravity Auth commands
 try:
