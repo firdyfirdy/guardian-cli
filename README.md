@@ -345,7 +345,7 @@ We welcome contributions! Here's how:
 
 ```bash
 # Fork and clone
-git clone https://github.com/zakirkun/guardian-cli.git
+git clone https://github.com/firdyfirdy/guardian-cli.git
 cd guardian-cli
 
 # Install dev dependencies
